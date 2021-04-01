@@ -276,17 +276,22 @@ void TensorImpl::throw_storage_access_error() const {
   TORCH_CHECK_NOT_IMPLEMENTED(false, "Cannot access storage of ", tensorimpl_type_name());
 }
 
-bool TensorImpl::is_contiguous(at::MemoryFormat memory_format) const {
-#ifdef DEBUG
-  AT_ASSERT(compute_contiguous() == is_contiguous_);
-#endif
-  if (memory_format == at::MemoryFormat::ChannelsLast) {
-      return is_channels_last_contiguous_;
+bool TensorImpl::is_contiguous_nondefault_policy_impl(at::MemoryFormat memory_format) const {
+  if (has_contiguity_ == HasContiguityPolicy::ContiguityNotSupported) {
+    TORCH_CHECK_NOT_IMPLEMENTED(
+        false, "Tensors of type ", tensorimpl_type_name(),
+        " do not have is_contiguous");
+  } else {
+    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(has_contiguity_ == HasContiguityPolicy::CustomBehavior);
+    return is_contiguous_custom(memory_format);
   }
-  else if (memory_format == at::MemoryFormat::ChannelsLast3d) {
-      return is_channels_last_3d_contiguous_;
-  }
-  return is_contiguous_;
+}
+
+bool TensorImpl::is_contiguous_custom(at::MemoryFormat memory_format) const {
+  TORCH_INTERNAL_ASSERT(
+      false,
+      "TensorImpl::is_contiguous_custom should never be called; did you "
+      "set_has_contiguity_policy and forget to override is_contiguous_custom?");
 }
 
 static void deletePlacementDeleteContext(void* ptr) {
